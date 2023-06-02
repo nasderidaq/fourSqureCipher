@@ -392,8 +392,8 @@
 		const dropLetter = renderLetter('drop ', 'J', hashData.get('drop')).lastChild;
 
 		const onTextSelect = () => {
-			ciphertext.readOnly = active !== ciphertext;
-			plaintext.readOnly = active !== plaintext;
+			ciphertext.disabled = active !== ciphertext;
+			plaintext.disabled = active !== plaintext;
 			onChange();
 		};
 		const renderText = (label, value) => {
