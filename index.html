@@ -241,7 +241,10 @@
 			});
 		};
 
-		const hashData = new Map(win.location.hash.replace(/^#/, '').split('&').map((p) => p.split('=')));
+		const hashData = new Map(win.location.hash.replace(/^#/, '').split('&').map((p) => {
+			const [key, value] = p.split('=');
+			return [key, decodeURIComponent(value ?? '')];
+		}));
 		let squareYs = new Array(squareHeight);
 		for (let squareY = 0; squareY < squareHeight; squareY++) {
 			const squareXs = new Array(squareWidth);
