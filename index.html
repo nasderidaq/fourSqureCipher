@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Four Square Cipher</title>
+<style>
+.fourSquare input[type=text] {
+	width: 14px;
+}
+.fourSquare input[type=text]:invalid {
+	background: #f88;
+}
+.fourSquare input[type=text].duplicate {
+	background: #fa6;
+}
+.fourSquare > label {
+	margin: 16px 16px 16px 0;
+}
+</style>
+</head>
+<body>
+<script>
+'use strict';
+{
+	const win = window;
+	const {
+		document,
+	} = win;
+	const {
+		body,
+	} = document;
+
+	const squareHeight = 2;
+	const squareWidth = 2;
+	const charHeight = 5;
+	const charWidth = 5;
+
+	const cellHeight = charHeight + 1;
+	const cellWidth = charWidth + 1;
+	const totalHeight = squareHeight * cellHeight;
+	const totalWidth = squareWidth * cellWidth;
+
+	const squareId = (squareX, squareY) => {
+		return `${squareX},${squareY}`
+	};
+	const xyId = (squareX, squareY, x, y) => {
+		return `${squareId(squareX, squareY)}:${x},${y}`
+	};
+
+	const render = () => {
+		const container = document.createElement('div');
+		container.classList.add('fourSquare');
+		const table = document.createElement('table');
+		container.appendChild(table);
+		const tbody = document.createElement('tbody');
+		table.appendChild(tbody);
+
+		for (let y = 0; y < totalHeight; y++) {
+			const row = document.createElement('tr');
+			tbody.appendChild(row);
+			for (let x = 0; x < totalWidth; x++) {
+				const cell = document.createElement('td');
+				row.appendChild(cell);
+			}
+		}
+		const xy = (squareX, squareY, x, y, {dir = 0, flipX = false, flipY = false} = {}) => {
+			let dx = x;
+			let dy = y;
+			switch (dir) {
+				case 0:
+					dx = x;
+					dy = y;
+					break;
+				case 1:
+					dx = charHeight - y - 1;
+					dy = x;
+					break;
+				case 2:
+					dx = charWidth - x - 1;
+					dy = charHeight - y - 1;
+					break;
+				case 3:
+					dx = y;
+					dy = charWidth - x - 1;
+					break;
+			}
+			if (flipX) {
+				dx = charWidth - dx - 1;
+			}
+			if (flipY) {
+				dy = charHeight - dy - 1;
+			}
+			return tbody
+				.childNodes[(squareY * cellHeight) + dy]
+				.childNodes[(squareX * cellWidth) + dx];
+		};
+		const xyInput = (squareX, squareY, x, y, transforms = undefined) => {
+			return xy(squareX, squareY, x, y, transforms).childNodes[0];
+		};
+		const xyValue = (squareX, squareY, x, y, transforms = undefined) => {
+			const input = xyInput(squareX, squareY, x, y, transforms);
+			return input.value || input.placeholder;
+		};
+
+		const charPattern = () => {
+			const dropValue = dropLetter.value || dropLetter.placeholder;
+			const dropCode = dropValue.charCodeAt(0);
+			return `[${
+					dropValue > 'A' ? `A-${String.fromCharCode(dropCode - 1)}` : ''
+				}${
+					dropValue < 'Z' ? `${String.fromCharCode(dropCode + 1)}-Z` : ''
+				}]`;
+		};
+
+		const onChange = () => {
+			const pattern = charPattern();
+			const dropCode = (dropLetter.value || dropLetter.placeholder).charCodeAt(0);
+			let hashData = [];
+			if (padLetter.value) {
+				hashData.push(`pad=${padLetter.value}`);
+			}
+			if (dropLetter.value) {
+				hashData.push(`drop=${dropLetter.value}`);
+			}
+			const mapYs = new Array(squareHeight);
+			for (let squareY = 0; squareY < squareHeight; squareY++) {
+				const mapXs = new Array(squareWidth);
+				mapYs[squareY] = mapXs;
+				for (let squareX = 0; squareX < squareWidth; squareX++) {
+					const map = new Map();
+					mapXs[squareX] = map;
+
+					const transforms = squareYs[squareY][squareX];
+					if (transforms.dir !== 0) {
+						hashData.push(`${squareId(squareX, squareY)}:d=${transforms.dir}`);
+					}
+					if (transforms.flipX) {
+						hashData.push(`${squareId(squareX, squareY)}:fx=1`);
+					}
+					if (transforms.flipY) {
+						hashData.push(`${squareId(squareX, squareY)}:fy=1`);
+					}
+
+					const unused = new Set();
+					const used = new Map();
+					for (let i = 0; i < 26; i++) {
+						const code = 'A'.charCodeAt(0) + i;
+						if (code !== dropCode) {
+							unused.add(String.fromCharCode(code));
+						}
+					}
+					for (let y = 0; y < charHeight; y++) {
+						for (let x = 0; x < charWidth; x++) {
+							const input = xyInput(squareX, squareY, x, y);
+							const value = input.value;
+							input.pattern = pattern;
+							if (value) {
+								const first = used.get(value);
+								if (!first) {
+									used.set(value, input);
+									unused.delete(value);
+									input.classList.remove('duplicate');
+								} else {
+									first.classList.add('duplicate');
+									input.classList.add('duplicate');
+								}
+								hashData.push(`${xyId(squareX, squareY, x, y)}=${value}`);
+							} else {
+								input.classList.remove('duplicate');
+							}
+						}
+					}
+					for (let y = 0; y < charHeight; y++) {
+						for (let x = 0; x < charWidth; x++) {
+							const input = xyInput(squareX, squareY, x, y, transforms);
+							const value = input.value;
+							if (!value) {
+								let value = '?';
+								for (const letter of unused) {
+									value = letter;
+									break;
+								}
+								input.placeholder = value;
+								unused.delete(value);
+							}
+						}
+					}
+					for (let y = 0; y < charHeight; y++) {
+						for (let x = 0; x < charWidth; x++) {
+							map.set(xyValue(squareX, squareY, x, y), {x, y});
+						}
+					}
+				}
+			}
+
+			if (active === ciphertext) {
+				decode(mapYs, hashData);
+			} else if (active === plaintext) {
+				encode(mapYs, hashData);
+			}
+
+			win.location.hash = `#${hashData.join('&')}`;
+		};
+
+		const decode = (maps, hashData) => {
+			const dropValue = dropLetter.value || dropLetter.placeholder;
+			const padValue = padLetter.value || padLetter.placeholder;
+
+			const text = ciphertext.value;
+			if (text.includes(dropValue)) {
+			}
+			hashData.push(`ct=${encodeURIComponent(text)}`);
+
+			const pattern = charPattern();
+			plaintext.value = text.replace(new RegExp(`(${pattern})([^]*?)(${pattern}|$)`, 'gi'), (_, a, m, b) => {
+				const first = maps[0][1].get(a.toUpperCase());
+				const second = maps[1][0].get(b.toUpperCase());
+				if (!first || !second) {
+					return `?${m}`;
+				}
+				return `${xyValue(0, 0, second.x, first.y)}${m}${xyValue(1, 1, first.x, second.y)}`;
+			});
+		};
+
+		const encode = (maps, hashData) => {
+			const dropValue = dropLetter.value || dropLetter.placeholder;
+			const padValue = padLetter.value || padLetter.placeholder;
+
+			const text = plaintext.value;
+			if (text.includes(dropValue)) {
+			}
+			hashData.push(`pt=${encodeURIComponent(text)}`);
+
+			const pattern = charPattern();
+			ciphertext.value = text.replace(new RegExp(`(${pattern})([^]*?)(${pattern}|$)`, 'gi'), (_, a, m, b) => {
+				const first = maps[0][0].get(a.toUpperCase());
+				const second = maps[1][1].get((b || padValue).toUpperCase());
+				if (!first || !second) {
+					return `?${m}?`;
+				}
+				return `${xyValue(1, 0, second.x, first.y)}${m}${xyValue(0, 1, first.x, second.y)}`;
+			});
+		};
+
+		const hashData = new Map(win.location.hash.replace(/^#/, '').split('&').map((p) => p.split('=')));
+		let squareYs = new Array(squareHeight);
+		for (let squareY = 0; squareY < squareHeight; squareY++) {
+			const squareXs = new Array(squareWidth);
+			squareYs[squareY] = squareXs;
+			for (let squareX = 0; squareX < squareWidth; squareX++) {
+				const transforms = {
+					dir: Number(hashData.get(`${squareId(squareX, squareY)}:d`) || 0),
+					flipX: Boolean(Number(hashData.get(`${squareId(squareX, squareY)}:fx`))),
+					flipY: Boolean(Number(hashData.get(`${squareId(squareX, squareY)}:fy`))),
+				};
+				squareXs[squareX] = transforms;
+
+				const reset = document.createElement('button');
+				reset.appendChild(document.createTextNode('🗑'));
+				reset.addEventListener('click', (event) => {
+					for (let y = 0; y < charHeight; y++) {
+						for (let x = 0; x < charWidth; x++) {
+							xyInput(squareX, squareY, x, y).value = '';
+						}
+					}
+					transforms.dir = 0;
+					transforms.flipX = false;
+					transforms.flipY = false;
+
+					onChange();
+				});
+				xy(squareX, squareY, charWidth, 0).appendChild(reset);
+
+				const save = () => {
+					const ys = new Array(charHeight);
+					for (let y = 0; y < charHeight; y++) {
+						const xs = new Array(charWidth);
+						ys[y] = xs;
+						for (let x = 0; x < charWidth; x++) {
+							xs[x] = xyInput(squareX, squareY, x, y, transforms).value;
+						}
+					}
+					return ys;
+				};
+				const set = (ys) => {
+					for (let y = 0; y < charHeight; y++) {
+						for (let x = 0; x < charWidth; x++) {
+							xyInput(squareX, squareY, x, y, transforms).value = ys[y][x];
+						}
+					}
+				};
+				const rotate = (dir) => {
+					const ys = save();
+					transforms.dir = (transforms.dir + dir + 4) % 4;
+					set(ys);
+
+					onChange();
+				};
+
+				const clockwise = document.createElement('button');
+				clockwise.appendChild(document.createTextNode('↻'));
+				clockwise.addEventListener('click', (event) => {
+					rotate(1);
+				});
+				xy(squareX, squareY, charWidth, 1).appendChild(clockwise);
+
+				const counterclockwise = document.createElement('button');
+				counterclockwise.appendChild(document.createTextNode('↺'));
+				counterclockwise.addEventListener('click', (event) => {
+					rotate(-1);
+				});
+				xy(squareX, squareY, charWidth, 2).appendChild(counterclockwise);
+
+				const flip = (flipX, flipY) => {
+					const ys = save();
+					transforms.flipX = Boolean(flipX ^ transforms.flipX);
+					transforms.flipY = Boolean(flipY ^ transforms.flipY);
+					set(ys);
+
+					onChange();
+				};
+
+				const flipX = document.createElement('button');
+				flipX.appendChild(document.createTextNode('↔'));
+				flipX.addEventListener('click', (event) => {
+					flip(true, false);
+				});
+				xy(squareX, squareY, charWidth, 3).appendChild(flipX);
+
+				const flipY = document.createElement('button');
+				flipY.appendChild(document.createTextNode('↕'));
+				flipY.addEventListener('click', (event) => {
+					flip(false, true);
+				});
+				xy(squareX, squareY, charWidth, 4).appendChild(flipY);
+
+				for (let y = 0; y < charHeight; y++) {
+					for (let x = 0; x < charWidth; x++) {
+						const id = xyId(squareX, squareY, x, y);
+						const data = hashData.get(id);
+
+						const input = document.createElement('input');
+						input.name = id;
+						input.type = 'text';
+						input.size = 1;
+						input.maxLength = 1;
+						if (data) {
+							input.value = data;
+						}
+						input.addEventListener('input', (event) => {
+							const value = input.value;
+							if (value) {
+								const upper = value.toUpperCase();
+								if (value !== upper) {
+									input.value = upper;
+								}
+								if (y < charHeight - 1 || x < charWidth - 1) {
+									xyInput(squareX, squareY, (x + 1) % charWidth, y + (x === charWidth - 1)).focus();
+								}
+							}
+
+							onChange();
+						});
+						xy(squareX, squareY, x, y).appendChild(input);
+					}
+				}
+			}
+		}
+
+		const renderLetter = (text, placeholder, value) => {
+			const label = document.createElement('label');
+			container.appendChild(label);
+			label.appendChild(document.createTextNode(text));
+
+			const letter = document.createElement('input');
+			letter.type = 'text';
+			letter.size = 1;
+			letter.maxLength = 1;
+			letter.pattern = '[A-Z]';
+			letter.placeholder = placeholder;
+			if (value != null) {
+				letter.value = value;
+			}
+			letter.addEventListener('input', onChange);
+			label.appendChild(letter);
+
+			return label;
+		};
+		const padLetter = renderLetter('pad ', 'Z', hashData.get('pad')).lastChild;
+		const dropLetter = renderLetter('drop ', 'J', hashData.get('drop')).lastChild;
+
+		const onTextSelect = () => {
+			ciphertext.readOnly = active !== ciphertext;
+			plaintext.readOnly = active !== plaintext;
+			onChange();
+		};
+		const renderText = (label, value) => {
+			const tcontainer = document.createElement('div');
+			container.appendChild(tcontainer)
+
+			const textSelectLabel = document.createElement('label');
+			tcontainer.appendChild(textSelectLabel);
+			const textSelect = document.createElement('input');
+			textSelect.type = 'radio';
+			textSelect.name = 'direction';
+			if (value != null) {
+				textSelect.checked = true;
+			}
+			textSelect.addEventListener('input', () => {
+				active = text;
+				onTextSelect();
+			});
+			textSelectLabel.appendChild(textSelect);
+			textSelectLabel.appendChild(document.createTextNode(label));
+
+			const textContainer = document.createElement('div');
+			tcontainer.appendChild(textContainer);
+			const text = document.createElement('textarea');
+			text.cols = 80;
+			text.rows = 10;
+			if (value != null) {
+				text.value = value;
+			}
+			text.addEventListener('input', () => {
+				onChange();
+			});
+			textContainer.appendChild(text);
+
+			return tcontainer;
+		};
+	
+		const ciphertext = renderText('ciphertext', hashData.get('ct') || '').querySelector('textarea');
+		const plaintext = renderText('plaintext', hashData.get('pt')).querySelector('textarea');
+
+		let active = ciphertext;
+
+		onTextSelect();
+
+		return container;
+	};
+	body.appendChild(render());
+}
+</script>
+</body>
+</html>
